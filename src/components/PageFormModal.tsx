@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { ApiBlock, FolderOption, PageDoc, QueryItem, QueryType } from '../api/types';
 import { parseQueriesFromCode, collapseWs } from '../utils/sqlParser';
 import { useToast } from './Toast';
+import { ImageLightbox } from './ImageLightbox';
 
 const MAX_METHOD_LINES = 500;
 
@@ -71,6 +72,7 @@ export function PageFormModal({
   const [error, setError] = useState('');
   // Scratch pad only — never saved to the backend, purely for parsing queries out of pasted code.
   const [scratchCode, setScratchCode] = useState<Record<string, string>>({});
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -127,6 +129,10 @@ export function PageFormModal({
     } catch (err: any) {
       toast(err.message);
     }
+  }
+
+  function removeImage(field: 'vbImage' | 'migImage') {
+    setDraft((d) => ({ ...d, comparison: { ...d.comparison, [field]: '' } }));
   }
 
   async function save() {
@@ -291,7 +297,19 @@ export function PageFormModal({
                 Click to attach VB screenshot
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e, 'vbImage')} />
               </label>
-              {draft.comparison.vbImage && <img className="thumb-preview" src={draft.comparison.vbImage} />}
+              {draft.comparison.vbImage && (
+                <div className="thumb-wrap">
+                  <img className="thumb-preview" src={draft.comparison.vbImage} />
+                  <div className="thumb-overlay">
+                    <button type="button" className="thumb-btn" title="View fullscreen" onClick={() => setLightbox(draft.comparison.vbImage)}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage('vbImage')}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Migrated notes / observations</label>
@@ -300,10 +318,23 @@ export function PageFormModal({
                 Click to attach migrated screenshot
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e, 'migImage')} />
               </label>
-              {draft.comparison.migImage && <img className="thumb-preview" src={draft.comparison.migImage} />}
+              {draft.comparison.migImage && (
+                <div className="thumb-wrap">
+                  <img className="thumb-preview" src={draft.comparison.migImage} />
+                  <div className="thumb-overlay">
+                    <button type="button" className="thumb-btn" title="View fullscreen" onClick={() => setLightbox(draft.comparison.migImage)}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage('migImage')}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+        <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />
         <div className="modal-foot">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn-accent" disabled={saving} onClick={save}>

@@ -155,11 +155,21 @@ export default function PageDetail() {
                   <div className="qrow" key={q.id}>
                     <div className={`qtype ${q.type}`}>{q.type}</div>
                     <div className="qbody">
-                      <div className="qsql">{q.sql}</div>
+                      <div className="qsql-compare">
+                        <div className="qsql-col">
+                          <div className="qsql-label">VB original</div>
+                          <div className="qsql">{q.vbSql || <span style={{ color: 'var(--text-faint)' }}>— not recorded —</span>}</div>
+                        </div>
+                        <div className="qsql-col">
+                          <div className="qsql-label">Migrated</div>
+                          <div className="qsql">{q.sql}</div>
+                        </div>
+                      </div>
                       <div className="qmeta">
                         {q.tables.length > 0 && <span><b>Tables:</b> {q.tables.join(', ')}</span>}
                         {q.columns.length > 0 && <span><b>Columns set:</b> {q.columns.join(', ')}</span>}
                         {q.maxRows && <span><b>Max rows:</b> {q.maxRows}</span>}
+                        {q.whereConditions && <span><b>Where:</b> {q.whereConditions}</span>}
                       </div>
                       {q.notes && <div className="qnotes">{q.notes}</div>}
                     </div>
