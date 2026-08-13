@@ -55,7 +55,7 @@
   --pending:#7A4CD1;
   --pending-dim:#EEE5FC;
   --login-glow:#E7ECF5;
-  --accent-ink:#052029;
+  --accent-ink:#e5f6fc;
   color-scheme:light;
 }
 
@@ -82,7 +82,7 @@
     --pending:#7A4CD1;
     --pending-dim:#EEE5FC;
     --login-glow:#E7ECF5;
-    --accent-ink:#052029;
+    --accent-ink:#e5f6fc;
     color-scheme:light;
   }
 }
@@ -113,6 +113,8 @@ button{font-family:var(--font-body);}
 .node-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:12.8px;color:var(--text-dim);white-space:nowrap;}
 .node-row:hover{background:var(--surface2);color:var(--text);}
 .node-row.active{background:var(--mig-dim);color:var(--mig);}
+.delete-folder-btn{opacity:0;pointer-events:none;transition:opacity .12s ease;}
+.node-row:hover .delete-folder-btn{opacity:1;pointer-events:auto;}
 .node-children{padding-left:15px;border-left:1px solid var(--border-soft);margin-left:11px;}
 .chev{width:11px;height:11px;flex:none;transition:transform .15s;opacity:.6;}
 .chev.open{transform:rotate(90deg);}
@@ -182,7 +184,16 @@ button{font-family:var(--font-body);}
 .badge.role{background:var(--surface3);color:var(--text-dim);}
 
 .seal{position:relative;width:64px;height:64px;flex:none;}
-.seal-shape{position:absolute;inset:0;clip-path:polygon(100% 50%,89.73% 66.46%,85.36% 85.36%,66.46% 89.73%,50% 100%,33.54% 89.73%,14.64% 85.36%,10.27% 66.46%,0% 50%,10.27% 33.54%,14.64% 14.64%,33.54% 10.27%,50% 0%,66.46% 10.27%,85.36% 14.64%,89.73% 33.54%);display:flex;align-items:center;justify-content:center;flex-direction:column;}
+/* .seal-shape{position:absolute;inset:0;clip-path:polygon(100% 50%,89.73% 66.46%,85.36% 85.36%,66.46% 89.73%,50% 100%,33.54% 89.73%,14.64% 85.36%,10.27% 66.46%,0% 50%,10.27% 33.54%,14.64% 14.64%,33.54% 10.27%,50% 0%,66.46% 10.27%,85.36% 14.64%,89.73% 33.54%);display:flex;align-items:center;justify-content:center;flex-direction:column;} */
+.seal-shape{
+    position:absolute;
+    inset:0;
+    border-radius:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+}
 .seal.verified .seal-shape{background:var(--verified-dim);border:1px solid var(--verified);}
 .seal.mismatch .seal-shape{background:var(--mismatch-dim);border:1px solid var(--mismatch);}
 .seal.pending .seal-shape{background:var(--pending-dim);border:1px solid var(--pending);}

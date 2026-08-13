@@ -86,12 +86,15 @@ export default function PageDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <StatusSeal status={page.status} />
-          {isAdmin && (
-            <div className="detail-actions">
-              <button className="btn btn-ghost" onClick={() => setShowEdit(true)}>Edit</button>
-              <button className="btn btn-ghost btn-danger" onClick={remove}>Delete</button>
-            </div>
-          )}
+          <div className="detail-actions">
+            <button className="btn btn-ghost" onClick={() => navigate(`/projects/${project.id}`)}>Dashboard</button>
+            {isAdmin && (
+              <>
+                <button className="btn btn-ghost" onClick={() => setShowEdit(true)}>Edit</button>
+                <button className="btn btn-ghost btn-danger" onClick={remove}>Delete</button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

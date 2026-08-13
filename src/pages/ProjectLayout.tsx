@@ -64,7 +64,18 @@ export default function ProjectLayout() {
           </div>
         )}
         <div id="tree">
-          <Tree nodes={tree} projectId={projectId} activePageId={pageId} />
+          <Tree
+            nodes={tree}
+            projectId={projectId}
+            activePageId={pageId}
+            onFolderDeleted={() => {
+              refreshTree();
+              // If the page currently open lived inside the deleted folder, bounce back to the dashboard.
+              if (pageId) {
+                api.getPage(pageId).catch(() => navigate(`/projects/${projectId}`));
+              }
+            }}
+          />
         </div>
       </aside>
 

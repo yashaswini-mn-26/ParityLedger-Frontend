@@ -80,7 +80,7 @@ export function AssignBox({ page, onUpdated }: { page: PageDoc; onUpdated: (p: P
           {devs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </div>
-      <button className="btn" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Assign'}</button>
+      <button className="btn" disabled={saving} onClick={save} style={{width:"80px", backgroundColor:"#0E7FA6",}}>{saving ? 'Saving…' : 'Assign'}</button>
     </div>
   );
 }
