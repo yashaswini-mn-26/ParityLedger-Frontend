@@ -199,8 +199,12 @@ export default function PageDetail() {
             <div className="compare-head">VB.NET original</div>
             <div className="compare-body">
               <p>{page.comparison.vbNotes || <span className="compare-empty">No notes logged.</span>}</p>
-              {page.comparison.vbImage && (
-                <img className="compare-img" src={page.comparison.vbImage} style={{ cursor: 'zoom-in' }} onClick={() => setLightbox(page.comparison.vbImage)} />
+              {(page.comparison.vbImages || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {page.comparison.vbImages.map((src, i) => (
+                    <img key={i} className="compare-img" src={src} style={{ cursor: 'zoom-in', maxWidth: 160 }} onClick={() => setLightbox(src)} />
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -208,8 +212,12 @@ export default function PageDetail() {
             <div className="compare-head">Migrated (React/Django)</div>
             <div className="compare-body">
               <p>{page.comparison.migNotes || <span className="compare-empty">No notes logged.</span>}</p>
-              {page.comparison.migImage && (
-                <img className="compare-img" src={page.comparison.migImage} style={{ cursor: 'zoom-in' }} onClick={() => setLightbox(page.comparison.migImage)} />
+              {(page.comparison.migImages || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {page.comparison.migImages.map((src, i) => (
+                    <img key={i} className="compare-img" src={src} style={{ cursor: 'zoom-in', maxWidth: 160 }} onClick={() => setLightbox(src)} />
+                  ))}
+                </div>
               )}
             </div>
           </div>

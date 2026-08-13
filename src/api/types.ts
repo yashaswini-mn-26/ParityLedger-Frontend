@@ -66,20 +66,21 @@ export interface ApiBlock {
 export interface Comparison {
   vbNotes: string;
   migNotes: string;
-  vbImage: string;
-  migImage: string;
+  vbImages: string[];   // was vbImage: string
+  migImages: string[];  // was migImage: string
 }
 
 export interface Comment {
   id: string;
-  parent_id: string | null;  // NEW — null = top-level, else replying to that comment id
+  parent_id: string | null;
   author_id: string;
   author_name: string;
   author_role: Role;
   text: string;
-  image: string;
+  images: string[];     // was image: string
   created_at: string;
 }
+
 export interface PageDoc {
   id: string;
   project_id: string;

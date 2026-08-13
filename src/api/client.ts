@@ -141,7 +141,7 @@ export const api = {
       return data as PageDoc;
     } catch (e) { throw new Error(unwrapError(e)); }
   },
-async addComment(pageId: string, payload: { text: string; image?: string; parent_id?: string | null }) {
+async addComment(pageId: string, payload: { text: string; images?: string[]; parent_id?: string | null }) {
   try {
     const { data } = await client.post(`/pages/${pageId}/comments`, payload);
     return data as PageDoc;

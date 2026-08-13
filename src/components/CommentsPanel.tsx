@@ -3,6 +3,9 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import type { Comment, PageDoc } from '../api/types';
 import { useToast } from './Toast';
+import { ImageLightbox } from './ImageLightbox';
+
+const MAX_IMAGES = 6;
 
 function initials(name: string) {
   return name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -18,14 +21,26 @@ function readImage(file: File): Promise<string> {
   });
 }
 
+function ImageStrip({ images, onClick }: { images: string[]; onClick: (src: string) => void }) {
+  if (!images || images.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {images.map((src, i) => (
+        <img key={i} className="comment-img" src={src} style={{ cursor: 'zoom-in', maxWidth: 140 }} onClick={() => onClick(src)} />
+      ))}
+    </div>
+  );
+}
+
 function CommentRow({
-  c, replies, onReply, onDelete, canDelete,
+  c, replies, onReply, onDelete, canDelete, onImageClick,
 }: {
   c: Comment;
   replies: Comment[];
   onReply: (parentId: string, text: string) => Promise<void>;
   onDelete: (id: string) => void;
   canDelete: (c: Comment) => boolean;
+  onImageClick: (src: string) => void;
 }) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -55,7 +70,7 @@ function CommentRow({
           {canDelete(c) && <button className="comment-del" onClick={() => onDelete(c.id)}>delete</button>}
         </div>
         {c.text && <div className="comment-text">{c.text}</div>}
-        {c.image && <img className="comment-img" src={c.image} />}
+        <ImageStrip images={c.images} onClick={onImageClick} />
 
         {replying && (
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -83,7 +98,7 @@ function CommentRow({
                     {canDelete(r) && <button className="comment-del" onClick={() => onDelete(r.id)}>delete</button>}
                   </div>
                   {r.text && <div className="comment-text">{r.text}</div>}
-                  {r.image && <img className="comment-img" src={r.image} />}
+                  <ImageStrip images={r.images} onClick={onImageClick} />
                 </div>
               </div>
             ))}
@@ -96,29 +111,40 @@ function CommentRow({
 
 export function CommentsPanel({ page, onUpdated }: { page: PageDoc; onUpdated: (p: PageDoc) => void }) {
   const [text, setText] = useState('');
-  const [image, setImage] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const toast = useToast();
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const room = MAX_IMAGES - images.length;
+    if (room <= 0) { toast(`Maximum ${MAX_IMAGES} images allowed`); e.target.value = ''; return; }
+    const toRead = files.slice(0, room);
+    if (files.length > room) toast(`Only added ${room} — max ${MAX_IMAGES} images per comment`);
     try {
-      setImage(await readImage(file));
+      const dataUrls = await Promise.all(toRead.map(readImage));
+      setImages((s) => [...s, ...dataUrls]);
     } catch (err: any) {
       toast(err.message);
     }
+    e.target.value = '';
+  }
+
+  function removeImage(i: number) {
+    setImages((s) => s.filter((_, idx) => idx !== i));
   }
 
   async function post() {
-    if (!text.trim() && !image) { toast('Write something or attach an image'); return; }
+    if (!text.trim() && images.length === 0) { toast('Write something or attach an image'); return; }
     setPosting(true);
     try {
-      const updated = await api.addComment(page.id, { text: text.trim(), image });
+      const updated = await api.addComment(page.id, { text: text.trim(), images });
       onUpdated(updated);
-      setText(''); setImage('');
+      setText(''); setImages([]);
       if (fileRef.current) fileRef.current.value = '';
     } catch (e: any) {
       toast(e.message);
@@ -158,22 +184,41 @@ export function CommentsPanel({ page, onUpdated }: { page: PageDoc; onUpdated: (
         <label>Add a comment</label>
         <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Note a discrepancy, ask a question, or leave feedback…" />
       </div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <label className="file-drop" style={{ flex: 1 }}>
-          {image ? 'Image attached — click to replace' : 'Attach a screenshot'}
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+          {images.length >= MAX_IMAGES ? `Max ${MAX_IMAGES} images reached` : `Attach screenshots (${images.length}/${MAX_IMAGES})`}
+          <input
+            ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+            disabled={images.length >= MAX_IMAGES}
+            onChange={handleFiles}
+          />
         </label>
         <button className="btn btn-accent btn-sm" disabled={posting} onClick={post}>{posting ? 'Posting…' : 'Post comment'}</button>
       </div>
-      {image && <img className="thumb-preview" src={image} style={{ maxWidth: 160, marginBottom: 14 }} />}
+      {images.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          {images.map((src, i) => (
+            <div className="thumb-wrap" key={i}>
+              <img className="thumb-preview" src={src} style={{ maxWidth: 120 }} />
+              <div className="thumb-overlay">
+                <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage(i)}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {roots.length === 0 ? (
         <div className="compare-empty">No comments yet.</div>
       ) : (
         [...roots].reverse().map((c) => (
-          <CommentRow key={c.id} c={c} replies={repliesOf(c.id)} onReply={reply} onDelete={remove} canDelete={canDelete} />
+          <CommentRow key={c.id} c={c} replies={repliesOf(c.id)} onReply={reply} onDelete={remove} canDelete={canDelete} onImageClick={setLightbox} />
         ))
       )}
+
+      <ImageLightbox src={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useToast } from './Toast';
 import { ImageLightbox } from './ImageLightbox';
 
 const MAX_METHOD_LINES = 500;
+const MAX_IMAGES = 6;
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -22,7 +23,7 @@ interface Draft {
   folder_id: string;
   apis: ApiBlock[];
   workflow: string[];
-  comparison: { vbNotes: string; migNotes: string; vbImage: string; migImage: string };
+  comparison: { vbNotes: string; migNotes: string; vbImages: string[]; migImages: string[] };
 }
 
 function toDraft(p?: PageDoc, defaultFolderId?: string): Draft {
@@ -31,13 +32,18 @@ function toDraft(p?: PageDoc, defaultFolderId?: string): Draft {
       name: p.name, path: p.path, folder_id: p.folder_id || '',
       apis: p.apis.length ? p.apis.map((a) => ({ ...a, queries: a.queries.map((q) => ({ ...q })) })) : [blankApi()],
       workflow: p.workflow.length ? [...p.workflow] : [''],
-      comparison: { ...p.comparison },
+      comparison: {
+        vbNotes: p.comparison.vbNotes || '',
+        migNotes: p.comparison.migNotes || '',
+        vbImages: [...(p.comparison.vbImages || [])],
+        migImages: [...(p.comparison.migImages || [])],
+      },
     };
   }
   return {
     name: '', path: '', folder_id: defaultFolderId || '',
     apis: [blankApi()], workflow: [''],
-    comparison: { vbNotes: '', migNotes: '', vbImage: '', migImage: '' },
+    comparison: { vbNotes: '', migNotes: '', vbImages: [], migImages: [] },
   };
 }
 
@@ -70,7 +76,6 @@ export function PageFormModal({
   const [draft, setDraft] = useState<Draft>(() => toDraft(existing, defaultFolderId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // Scratch pad only — never saved to the backend, purely for parsing queries out of pasted code.
   const [scratchCode, setScratchCode] = useState<Record<string, string>>({});
   const [lightbox, setLightbox] = useState<string | null>(null);
   const toast = useToast();
@@ -120,19 +125,25 @@ export function PageFormModal({
     toast(`Detected ${newItems.length} ${newItems.length === 1 ? 'query' : 'queries'} — review and edit below`);
   }
 
-  async function handleImage(e: React.ChangeEvent<HTMLInputElement>, field: 'vbImage' | 'migImage') {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleImages(e: React.ChangeEvent<HTMLInputElement>, field: 'vbImages' | 'migImages') {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const current = draft.comparison[field];
+    const room = MAX_IMAGES - current.length;
+    if (room <= 0) { toast(`Maximum ${MAX_IMAGES} images allowed`); e.target.value = ''; return; }
+    const toRead = files.slice(0, room);
+    if (files.length > room) toast(`Only added ${room} — max ${MAX_IMAGES} images per side`);
     try {
-      const dataUrl = await readImage(file);
-      setDraft((d) => ({ ...d, comparison: { ...d.comparison, [field]: dataUrl } }));
+      const dataUrls = await Promise.all(toRead.map(readImage));
+      setDraft((d) => ({ ...d, comparison: { ...d.comparison, [field]: [...d.comparison[field], ...dataUrls] } }));
     } catch (err: any) {
       toast(err.message);
     }
+    e.target.value = '';
   }
 
-  function removeImage(field: 'vbImage' | 'migImage') {
-    setDraft((d) => ({ ...d, comparison: { ...d.comparison, [field]: '' } }));
+  function removeImage(field: 'vbImages' | 'migImages', index: number) {
+    setDraft((d) => ({ ...d, comparison: { ...d.comparison, [field]: d.comparison[field].filter((_, i) => i !== index) } }));
   }
 
   async function save() {
@@ -161,6 +172,39 @@ export function PageFormModal({
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderImageGrid(field: 'vbImages' | 'migImages') {
+    const images = draft.comparison[field];
+    return (
+      <>
+        <label className="file-drop" style={{ display: 'block', marginTop: 8 }}>
+          {images.length >= MAX_IMAGES ? `Max ${MAX_IMAGES} images reached` : `Attach screenshots (${images.length}/${MAX_IMAGES})`}
+          <input
+            type="file" accept="image/*" multiple style={{ display: 'none' }}
+            disabled={images.length >= MAX_IMAGES}
+            onChange={(e) => handleImages(e, field)}
+          />
+        </label>
+        {images.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {images.map((src, i) => (
+              <div className="thumb-wrap" key={i}>
+                <img className="thumb-preview" src={src} />
+                <div className="thumb-overlay">
+                  <button type="button" className="thumb-btn" title="View fullscreen" onClick={() => setLightbox(src)}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                  <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage(field, i)}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    );
   }
 
   return (
@@ -293,44 +337,12 @@ export function PageFormModal({
             <div className="field">
               <label>VB.NET notes / observations</label>
               <textarea rows={3} value={draft.comparison.vbNotes} onChange={(e) => setDraft((d) => ({ ...d, comparison: { ...d.comparison, vbNotes: e.target.value } }))} />
-              <label className="file-drop" style={{ display: 'block', marginTop: 8 }}>
-                Click to attach VB screenshot
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e, 'vbImage')} />
-              </label>
-              {draft.comparison.vbImage && (
-                <div className="thumb-wrap">
-                  <img className="thumb-preview" src={draft.comparison.vbImage} />
-                  <div className="thumb-overlay">
-                    <button type="button" className="thumb-btn" title="View fullscreen" onClick={() => setLightbox(draft.comparison.vbImage)}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                    <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage('vbImage')}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                  </div>
-                </div>
-              )}
+              {renderImageGrid('vbImages')}
             </div>
             <div className="field">
               <label>Migrated notes / observations</label>
               <textarea rows={3} value={draft.comparison.migNotes} onChange={(e) => setDraft((d) => ({ ...d, comparison: { ...d.comparison, migNotes: e.target.value } }))} />
-              <label className="file-drop" style={{ display: 'block', marginTop: 8 }}>
-                Click to attach migrated screenshot
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e, 'migImage')} />
-              </label>
-              {draft.comparison.migImage && (
-                <div className="thumb-wrap">
-                  <img className="thumb-preview" src={draft.comparison.migImage} />
-                  <div className="thumb-overlay">
-                    <button type="button" className="thumb-btn" title="View fullscreen" onClick={() => setLightbox(draft.comparison.migImage)}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                    <button type="button" className="thumb-btn thumb-btn-danger" title="Remove image" onClick={() => removeImage('migImage')}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </button>
-                  </div>
-                </div>
-              )}
+              {renderImageGrid('migImages')}
             </div>
           </div>
         </div>
