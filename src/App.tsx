@@ -12,6 +12,7 @@ import QueryDrilldown from './pages/QueryDrilldown';
 import UsersAdmin from './pages/UsersAdmin';
 import { ThemeProvider } from './context/ThemeContext';
 import ThemeFab from './components/ThemeFab';
+import CodeExtractor from './pages/Codeextractor';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
                 <Route path="pages/:pageId" element={<PageDetail />} />
                 <Route path="pages/:pageId/queries/:type" element={<QueryDrilldown />} />
               </Route>
+              <Route path="/tools/extract" element={<ProtectedRoute roles={['admin']}><CodeExtractor /></ProtectedRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

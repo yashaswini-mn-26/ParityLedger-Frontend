@@ -14,7 +14,7 @@ export interface Review {
   verdict: string;
   reviewed_by: string;
   reviewed_by_name: string;
-  reviewed_by_role: Role;   // NEW — admin | user | developer
+  reviewed_by_role: Role;
   reviewed_date: string;
 }
 
@@ -63,13 +63,34 @@ export interface ApiBlock {
   queries: QueryItem[];
 }
 
+/**
+ * Comparison data may be returned in two forms:
+ * - lightweight page payload: notes + image counts only
+ * - richer client-side payload: notes + actual image data arrays
+ *
+ * The arrays are optional because the backend strips them from the light page
+ * fetch and loads them lazily via api.getComparisonImages(pageId).
+ */
 export interface Comparison {
   vbNotes: string;
   migNotes: string;
-  vbImages: string[];   // was vbImage: string
-  migImages: string[];  // was migImage: string
+  vbImageCount?: number;
+  migImageCount?: number;
+  vbImages?: string[];
+  migImages?: string[];
 }
 
+/** Actual image bytes, fetched lazily via GET /pages/<id>/comparison-images */
+export interface ComparisonImages {
+  vbImages: string[];
+  migImages: string[];
+}
+
+/**
+ * Shape returned inline on PageDoc (from the "light" page fetch). Image
+ * bytes are NOT included, only a count. Fetch actual bytes lazily via
+ * api.getCommentImages(pageId, commentId).
+ */
 export interface Comment {
   id: string;
   parent_id: string | null;
@@ -77,7 +98,7 @@ export interface Comment {
   author_name: string;
   author_role: Role;
   text: string;
-  images: string[];     // was image: string
+  image_count: number;
   created_at: string;
 }
 
@@ -91,7 +112,7 @@ export interface PageDoc {
   verdict: string;
   reviewed_by: string | null;
   reviewed_by_name: string;
-  reviewed_by_role: Role;   // NEW — admin | user | developer
+  reviewed_by_role: Role;
   reviewed_date: string | null;
   approved_by: string | null;
   approved_by_name: string;
@@ -105,7 +126,7 @@ export interface PageDoc {
   created_at: string;
   updated_at: string;
   approvals: Approval[];
-  reviews: Review[]; 
+  reviews: Review[];
 }
 
 export interface PageSummary {

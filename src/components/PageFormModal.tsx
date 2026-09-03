@@ -7,6 +7,7 @@ import { ImageLightbox } from './ImageLightbox';
 
 const MAX_METHOD_LINES = 500;
 const MAX_IMAGES = 6;
+const DRAFT_KEY = 'pl_pending_page_draft';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -35,8 +36,11 @@ function toDraft(p?: PageDoc, defaultFolderId?: string): Draft {
       comparison: {
         vbNotes: p.comparison.vbNotes || '',
         migNotes: p.comparison.migNotes || '',
-        vbImages: [...(p.comparison.vbImages || [])],
-        migImages: [...(p.comparison.migImages || [])],
+        // PageDoc.comparison comes from the light page fetch and only carries
+        // vbImageCount/migImageCount — actual bytes are loaded separately
+        // below via api.getComparisonImages once the modal mounts.
+        vbImages: [],
+        migImages: [],
       },
     };
   }
@@ -45,6 +49,16 @@ function toDraft(p?: PageDoc, defaultFolderId?: string): Draft {
     apis: [blankApi()], workflow: [''],
     comparison: { vbNotes: '', migNotes: '', vbImages: [], migImages: [] },
   };
+}
+
+/** Shape written by the Code Extractor tool (see pages/CodeExtractor.tsx) */
+interface ExtractorDraft {
+  name: string;
+  path: string;
+  folder_id: string;
+  workflow: string[];
+  comparison: { vbNotes: string; migNotes: string; vbImages: string[]; migImages: string[] };
+  apis: { name: string; queries: Partial<QueryItem>[] }[];
 }
 
 function readImage(file: File): Promise<string> {
@@ -78,11 +92,88 @@ export function PageFormModal({
   const [error, setError] = useState('');
   const [scratchCode, setScratchCode] = useState<Record<string, string>>({});
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [pendingExtractorDraft, setPendingExtractorDraft] = useState<ExtractorDraft | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
     api.listFoldersFlat(projectId).then(setFolders).catch(() => {});
   }, [projectId]);
+
+  // Existing pages only carry image counts (light fetch) — pull the actual
+  // vb/migrated screenshots in separately so editing doesn't wipe them out
+  // on save (draft.comparison.vbImages/migImages would otherwise stay empty).
+  useEffect(() => {
+    if (!existing) return;
+    let cancelled = false;
+    setLoadingImages(true);
+    api.getComparisonImages(existing.id)
+      .then((imgs) => {
+        if (cancelled) return;
+        setDraft((d) => ({
+          ...d,
+          comparison: { ...d.comparison, vbImages: imgs.vbImages, migImages: imgs.migImages },
+        }));
+      })
+      .catch((e: any) => toast(e.message))
+      .finally(() => { if (!cancelled) setLoadingImages(false); });
+    return () => { cancelled = true; };
+  }, [existing]);
+
+  // Only offer a Code Extractor draft when creating a brand-new page — never overwrite an existing review.
+  useEffect(() => {
+    if (existing) return;
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) setPendingExtractorDraft(JSON.parse(raw));
+    } catch {
+      // malformed/old draft — ignore silently
+    }
+  }, [existing]);
+
+  function loadExtractorDraft() {
+    if (!pendingExtractorDraft) return;
+    const d = pendingExtractorDraft;
+    setDraft((prev) => ({
+      ...prev,
+      name: d.name || prev.name,
+      path: d.path || prev.path,
+      workflow: d.workflow.length ? d.workflow : prev.workflow,
+      comparison: {
+        vbNotes: d.comparison?.vbNotes || prev.comparison.vbNotes,
+        migNotes: d.comparison?.migNotes || prev.comparison.migNotes,
+        vbImages: d.comparison?.vbImages?.length ? d.comparison.vbImages : prev.comparison.vbImages,
+        migImages: d.comparison?.migImages?.length ? d.comparison.migImages : prev.comparison.migImages,
+      },
+      apis: d.apis.length
+        ? d.apis.map((a) => ({
+            id: uid(),
+            name: a.name,
+            queries: a.queries.length
+              ? a.queries.map((q) => ({
+                  id: uid(),
+                  type: (q.type as QueryType) || 'SELECT',
+                  sql: q.sql || '',
+                  vbSql: q.vbSql || '',
+                  tables: q.tables || [],
+                  columns: q.columns || [],
+                  whereConditions: q.whereConditions || '',
+                  maxRows: q.maxRows || '',
+                  notes: q.notes || '',
+                }))
+              : [blankQuery()],
+          }))
+        : prev.apis,
+    }));
+    sessionStorage.removeItem(DRAFT_KEY);
+    setPendingExtractorDraft(null);
+    toast('Draft loaded — review every field before saving');
+  }
+
+  function dismissExtractorDraft() {
+    sessionStorage.removeItem(DRAFT_KEY);
+    setPendingExtractorDraft(null);
+  }
 
   function updateApi(apiId: string, patch: Partial<ApiBlock>) {
     setDraft((d) => ({ ...d, apis: d.apis.map((a) => (a.id === apiId ? { ...a, ...patch } : a)) }));
@@ -148,6 +239,10 @@ export function PageFormModal({
 
   async function save() {
     if (!draft.name.trim()) { setError('Page name is required'); return; }
+    if (existing && loadingImages) {
+      toast('Still loading existing screenshots — wait a moment before saving');
+      return;
+    }
     setSaving(true);
     setError('');
     const payload = {
@@ -186,6 +281,9 @@ export function PageFormModal({
             onChange={(e) => handleImages(e, field)}
           />
         </label>
+        {existing && loadingImages && (
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>Loading existing screenshots…</div>
+        )}
         {images.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {images.map((src, i) => (
@@ -216,6 +314,23 @@ export function PageFormModal({
         </div>
         <div className="modal-body">
           {error && <div className="form-error">{error}</div>}
+
+          {pendingExtractorDraft && (
+            <div className="panel" style={{ background: 'var(--mig-dim)', borderColor: 'var(--mig)', marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <b style={{ color: 'var(--mig)' }}>Draft found from Code Extractor</b>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
+                    "{pendingExtractorDraft.name || 'Untitled'}" — {pendingExtractorDraft.apis[0]?.queries.length || 0} queries, {pendingExtractorDraft.workflow.length} workflow steps.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={dismissExtractorDraft}>Dismiss</button>
+                  <button type="button" className="btn btn-accent btn-sm" onClick={loadExtractorDraft}>Load draft</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="row2">
             <div className="field">

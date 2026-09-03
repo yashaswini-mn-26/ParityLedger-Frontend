@@ -75,6 +75,8 @@ export default function PageDetail() {
 
   const stats = computeStats(page);
   const tables = tableSummary(page);
+  const vbImages = page.comparison.vbImages || [];
+  const migImages = page.comparison.migImages || [];
 
   return (
     <div className="view">
@@ -199,9 +201,9 @@ export default function PageDetail() {
             <div className="compare-head">VB.NET original</div>
             <div className="compare-body">
               <p>{page.comparison.vbNotes || <span className="compare-empty">No notes logged.</span>}</p>
-              {(page.comparison.vbImages || []).length > 0 && (
+              {vbImages.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {page.comparison.vbImages.map((src, i) => (
+                  {vbImages.map((src, i) => (
                     <img key={i} className="compare-img" src={src} style={{ cursor: 'zoom-in', maxWidth: 160 }} onClick={() => setLightbox(src)} />
                   ))}
                 </div>
@@ -212,9 +214,9 @@ export default function PageDetail() {
             <div className="compare-head">Migrated (React/Django)</div>
             <div className="compare-body">
               <p>{page.comparison.migNotes || <span className="compare-empty">No notes logged.</span>}</p>
-              {(page.comparison.migImages || []).length > 0 && (
+              {migImages.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                  {page.comparison.migImages.map((src, i) => (
+                  {migImages.map((src, i) => (
                     <img key={i} className="compare-img" src={src} style={{ cursor: 'zoom-in', maxWidth: 160 }} onClick={() => setLightbox(src)} />
                   ))}
                 </div>

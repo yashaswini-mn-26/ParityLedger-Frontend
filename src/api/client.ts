@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type {
-  Project, TreeNode, PageDoc, PageSummary, FolderOption, UserSummary, Role,
+  Project, TreeNode, PageDoc, PageSummary, FolderOption, UserSummary, Role, ComparisonImages,
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -141,15 +141,28 @@ export const api = {
       return data as PageDoc;
     } catch (e) { throw new Error(unwrapError(e)); }
   },
-async addComment(pageId: string, payload: { text: string; images?: string[]; parent_id?: string | null }) {
-  try {
-    const { data } = await client.post(`/pages/${pageId}/comments`, payload);
-    return data as PageDoc;
-  } catch (e) { throw new Error(unwrapError(e)); }
-},
+  async addComment(pageId: string, payload: { text: string; images?: string[]; parent_id?: string | null }) {
+    try {
+      const { data } = await client.post(`/pages/${pageId}/comments`, payload);
+      return data as PageDoc;
+    } catch (e) { throw new Error(unwrapError(e)); }
+  },
   async deleteComment(pageId: string, commentId: string) {
     const { data } = await client.delete(`/pages/${pageId}/comments/${commentId}`);
     return data as PageDoc;
+  },
+  // ---- lazy-loaded image bytes (kept off the main page/comment payload) ----
+  async getCommentImages(pageId: string, commentId: string) {
+    try {
+      const { data } = await client.get(`/pages/${pageId}/comments/${commentId}/images`);
+      return (data.images || []) as string[];
+    } catch (e) { throw new Error(unwrapError(e)); }
+  },
+  async getComparisonImages(pageId: string) {
+    try {
+      const { data } = await client.get(`/pages/${pageId}/comparison-images`);
+      return data as ComparisonImages;
+    } catch (e) { throw new Error(unwrapError(e)); }
   },
 
   // ---- search ----

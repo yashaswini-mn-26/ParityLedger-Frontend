@@ -32,8 +32,39 @@ function ImageStrip({ images, onClick }: { images: string[]; onClick: (src: stri
   );
 }
 
+/**
+ * Comments only carry an image_count from the server (light fetch — see
+ * backend's _fetch_light_page). Actual bytes are fetched on demand via
+ * api.getCommentImages and cached by the parent CommentsPanel.
+ */
+function CommentImageSection({
+  commentId, count, cache, loading, onLoad, onImageClick,
+}: {
+  commentId: string;
+  count: number;
+  cache: Record<string, string[]>;
+  loading: Record<string, boolean>;
+  onLoad: (commentId: string) => void;
+  onImageClick: (src: string) => void;
+}) {
+  if (!count) return null;
+  const images = cache[commentId];
+  if (images) return <ImageStrip images={images} onClick={onImageClick} />;
+  return (
+    <button
+      type="button"
+      className="comment-del"
+      style={{ marginTop: 6 }}
+      disabled={!!loading[commentId]}
+      onClick={() => onLoad(commentId)}
+    >
+      {loading[commentId] ? 'Loading…' : `Show ${count} image${count > 1 ? 's' : ''}`}
+    </button>
+  );
+}
+
 function CommentRow({
-  c, replies, onReply, onDelete, canDelete, onImageClick,
+  c, replies, onReply, onDelete, canDelete, onImageClick, imageCache, loadingImages, onLoadImages,
 }: {
   c: Comment;
   replies: Comment[];
@@ -41,6 +72,9 @@ function CommentRow({
   onDelete: (id: string) => void;
   canDelete: (c: Comment) => boolean;
   onImageClick: (src: string) => void;
+  imageCache: Record<string, string[]>;
+  loadingImages: Record<string, boolean>;
+  onLoadImages: (commentId: string) => void;
 }) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -70,7 +104,14 @@ function CommentRow({
           {canDelete(c) && <button className="comment-del" onClick={() => onDelete(c.id)}>delete</button>}
         </div>
         {c.text && <div className="comment-text">{c.text}</div>}
-        <ImageStrip images={c.images} onClick={onImageClick} />
+        <CommentImageSection
+          commentId={c.id}
+          count={c.image_count}
+          cache={imageCache}
+          loading={loadingImages}
+          onLoad={onLoadImages}
+          onImageClick={onImageClick}
+        />
 
         {replying && (
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -98,7 +139,14 @@ function CommentRow({
                     {canDelete(r) && <button className="comment-del" onClick={() => onDelete(r.id)}>delete</button>}
                   </div>
                   {r.text && <div className="comment-text">{r.text}</div>}
-                  <ImageStrip images={r.images} onClick={onImageClick} />
+                  <CommentImageSection
+                    commentId={r.id}
+                    count={r.image_count}
+                    cache={imageCache}
+                    loading={loadingImages}
+                    onLoad={onLoadImages}
+                    onImageClick={onImageClick}
+                  />
                 </div>
               </div>
             ))}
@@ -114,9 +162,24 @@ export function CommentsPanel({ page, onUpdated }: { page: PageDoc; onUpdated: (
   const [images, setImages] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [imageCache, setImageCache] = useState<Record<string, string[]>>({});
+  const [loadingImages, setLoadingImages] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const toast = useToast();
+
+  async function loadImages(commentId: string) {
+    if (imageCache[commentId] || loadingImages[commentId]) return;
+    setLoadingImages((s) => ({ ...s, [commentId]: true }));
+    try {
+      const fetched = await api.getCommentImages(page.id, commentId);
+      setImageCache((s) => ({ ...s, [commentId]: fetched }));
+    } catch (e: any) {
+      toast(e.message);
+    } finally {
+      setLoadingImages((s) => ({ ...s, [commentId]: false }));
+    }
+  }
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -144,6 +207,13 @@ export function CommentsPanel({ page, onUpdated }: { page: PageDoc; onUpdated: (
     try {
       const updated = await api.addComment(page.id, { text: text.trim(), images });
       onUpdated(updated);
+      // We already have the bytes locally for the comment we just posted —
+      // seed the cache so it renders immediately instead of round-tripping
+      // to /comments/<id>/images. Backend appends via $push, so it's last.
+      if (images.length > 0 && updated.comments.length > 0) {
+        const newest = updated.comments[updated.comments.length - 1];
+        setImageCache((s) => ({ ...s, [newest.id]: images }));
+      }
       setText(''); setImages([]);
       if (fileRef.current) fileRef.current.value = '';
     } catch (e: any) {
@@ -214,7 +284,18 @@ export function CommentsPanel({ page, onUpdated }: { page: PageDoc; onUpdated: (
         <div className="compare-empty">No comments yet.</div>
       ) : (
         [...roots].reverse().map((c) => (
-          <CommentRow key={c.id} c={c} replies={repliesOf(c.id)} onReply={reply} onDelete={remove} canDelete={canDelete} onImageClick={setLightbox} />
+          <CommentRow
+            key={c.id}
+            c={c}
+            replies={repliesOf(c.id)}
+            onReply={reply}
+            onDelete={remove}
+            canDelete={canDelete}
+            onImageClick={setLightbox}
+            imageCache={imageCache}
+            loadingImages={loadingImages}
+            onLoadImages={loadImages}
+          />
         ))
       )}
 

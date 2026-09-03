@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import type { Project } from '../api/types';
@@ -44,6 +44,7 @@ export default function ProjectsHome() {
         <div className="crumbs" />
         <div className="user-chip"><b>{user?.name}</b>&nbsp;· {user?.role}</div>
         {isAdmin && <button className="btn btn-ghost" onClick={() => navigate('/admin/users')}>Manage users</button>}
+        {isAdmin && <Link to="/tools/extract" className="btn btn-ghost">Code extractor</Link>}
         <button className="btn btn-ghost" onClick={logout}>Log out</button>
       </div>
 
