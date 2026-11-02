@@ -8,6 +8,7 @@ export interface UserSummary {
   username: string;
   name: string;
   role: Role;
+  is_demo?: boolean;
   created_at?: string;
 }
 

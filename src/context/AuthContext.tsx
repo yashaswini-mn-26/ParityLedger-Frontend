@@ -21,13 +21,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const DEMO_USERNAME = 'admin';
+const DEMO_PASSWORD = 'admin123';
+
+const TOKEN_KEY = 'pl_token';
+const USER_KEY = 'pl_user';
+const DEMO_WORKSPACE_KEY = 'pl_demo_workspace_token';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('pl_token');
-    const cached = localStorage.getItem('pl_user');
+    const token = localStorage.getItem(TOKEN_KEY);
+    const cached = localStorage.getItem(USER_KEY);
 
     if (!token || !cached) {
       setLoading(false);
@@ -43,46 +50,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(cachedUser);
 
-      // Validate token and refresh the cached user profile.
       api.me()
         .then((currentUser) => {
-          localStorage.setItem('pl_user', JSON.stringify(currentUser));
+          localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
           setUser(currentUser);
         })
         .catch(() => {
-          localStorage.removeItem('pl_token');
-          localStorage.removeItem('pl_user');
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
           setUser(null);
         })
         .finally(() => setLoading(false));
 
     } catch {
-      localStorage.removeItem('pl_token');
-      localStorage.removeItem('pl_user');
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
       setUser(null);
       setLoading(false);
     }
   }, []);
 
   async function login(username: string, password: string) {
-    const { token, user: loggedInUser } = await api.login(username, password);
+    const isDemoLogin =
+      username.trim().toLowerCase() === DEMO_USERNAME &&
+      password === DEMO_PASSWORD;
 
-    localStorage.setItem('pl_token', token);
-    localStorage.setItem('pl_user', JSON.stringify(loggedInUser));
+    // Reuse the visitor's saved workspace token on subsequent logins.
+    const savedWorkspaceToken = isDemoLogin
+      ? localStorage.getItem(DEMO_WORKSPACE_KEY) || undefined
+      : undefined;
+
+    const response = await api.login(
+      username,
+      password,
+      savedWorkspaceToken
+    );
+
+    const { token, user: loggedInUser, demo_workspace_token } = response;
+
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(loggedInUser));
+
+    // Save the server-issued token for future demo logins.
+    if (loggedInUser.is_demo && demo_workspace_token) {
+      localStorage.setItem(DEMO_WORKSPACE_KEY, demo_workspace_token);
+    }
 
     setUser(loggedInUser);
   }
 
   function logout() {
-    localStorage.removeItem('pl_token');
-    localStorage.removeItem('pl_user');
+    // Remove authentication, but preserve the demo workspace token.
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+
     setUser(null);
   }
 
-  // Only actual admin users receive admin privileges.
   const isAdmin = user?.role === 'admin';
-
-  // Demo users have their own isolated workspace.
   const isDemo = user?.role === 'demo';
 
   return (

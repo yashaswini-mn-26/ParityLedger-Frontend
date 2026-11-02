@@ -66,16 +66,25 @@ client.interceptors.response.use(
 export const api = {
   // ---- auth ----
 
-  async login(username: string, password: string) {
+
+  async login(
+    username: string,
+    password: string,
+    demoWorkspaceToken?: string
+  ) {
     try {
       const { data } = await client.post('/auth/login', {
         username,
         password,
+        ...(demoWorkspaceToken
+          ? { demo_workspace_token: demoWorkspaceToken }
+          : {}),
       });
 
       return data as {
         token: string;
         user: UserSummary;
+        demo_workspace_token?: string;
       };
     } catch (error) {
       throw new Error(unwrapError(error));
@@ -399,8 +408,8 @@ export const api = {
       const response = await fetch(url, {
         headers: token
           ? {
-              Authorization: `Bearer ${token}`,
-            }
+            Authorization: `Bearer ${token}`,
+          }
           : {},
       });
 
