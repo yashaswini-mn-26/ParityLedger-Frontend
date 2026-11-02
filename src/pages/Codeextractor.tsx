@@ -29,8 +29,10 @@ export default function CodeExtractor() {
   const toast = useToast();
 
   useEffect(() => {
-    if (!isAdmin) navigate('/');
-  }, [isAdmin]);
+    if (!isAdmin) {
+      navigate('/', { replace: true });
+    }
+  }, [isAdmin, navigate]);
 
   function runExtract() {
     if (!vbCode.trim() && !migratedCode.trim()) {
@@ -98,6 +100,7 @@ export default function CodeExtractor() {
 
   const matchedCount = queries.filter((q) => q.matched).length;
   const issueCount = queries.filter((q) => q.notes.includes('🔴')).length;
+  if (!isAdmin) return null;
 
   return (
     <div style={{ minHeight: '100vh' }}>

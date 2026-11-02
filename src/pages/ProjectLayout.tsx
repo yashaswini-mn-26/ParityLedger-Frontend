@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -20,7 +21,10 @@ export default function ProjectLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showPageModal, setShowPageModal] = useState(false);
-  const { user, isAdmin, logout } = useAuth();
+
+  const { user, isAdmin, isDemo, logout } = useAuth();
+  const canManageContent = isAdmin || isDemo;
+
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -31,19 +35,34 @@ export default function ProjectLayout() {
 
   useEffect(() => {
     if (!projectId) return;
-    api.getProject(projectId).then(setProject).catch(() => navigate('/'));
+
+    api.getProject(projectId)
+      .then(setProject)
+      .catch(() => {
+        toast('Unable to load project or you do not have access to it.');
+        navigate('/');
+      });
+
     refreshTree();
   }, [projectId]);
 
   if (!project || !projectId) {
-    return <div className="center-loading"><div className="spinner" /><span>LOADING PROJECT…</span></div>;
+    return (
+      <div className="center-loading">
+        <div className="spinner" />
+        <span>LOADING PROJECT…</span>
+      </div>
+    );
   }
 
   return (
     <div id="shell">
       <aside id="sidebar" className={sidebarOpen ? '' : 'collapsed'}>
         <div className="brand">
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link
+            to="/"
+            style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+          >
             <div className="brand-mark" />
             <div className="brand-text">
               <span className="brand-eyebrow">Migration QA</span>
@@ -51,18 +70,48 @@ export default function ProjectLayout() {
             </div>
           </Link>
         </div>
-        <div style={{ padding: '10px 14px 0', fontSize: 11.5, color: 'var(--text-faint)' }}>
-          <Link to="/" style={{ color: 'var(--mig)' }}>← All projects</Link>
+
+        <div
+          style={{
+            padding: '10px 14px 0',
+            fontSize: 11.5,
+            color: 'var(--text-faint)',
+          }}
+        >
+          <Link to="/" style={{ color: 'var(--mig)' }}>
+            ← All projects
+          </Link>
         </div>
-        <div style={{ padding: '6px 14px 10px', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 14 }}>
+
+        <div
+          style={{
+            padding: '6px 14px 10px',
+            fontWeight: 700,
+            fontFamily: 'var(--font-display)',
+            fontSize: 14,
+          }}
+        >
           {project.name}
         </div>
-        {isAdmin && (
+
+        {canManageContent && (
           <div className="sidebar-actions">
-            <button className="btn-mini" onClick={() => setShowFolderModal(true)}>+ Folder</button>
-            <button className="btn-mini" onClick={() => setShowPageModal(true)}>+ Page</button>
+            <button
+              className="btn-mini"
+              onClick={() => setShowFolderModal(true)}
+            >
+              + Folder
+            </button>
+
+            <button
+              className="btn-mini"
+              onClick={() => setShowPageModal(true)}
+            >
+              + Page
+            </button>
           </div>
         )}
+
         <div id="tree">
           <Tree
             nodes={tree}
@@ -70,9 +119,13 @@ export default function ProjectLayout() {
             activePageId={pageId}
             onFolderDeleted={() => {
               refreshTree();
-              // If the page currently open lived inside the deleted folder, bounce back to the dashboard.
+
+              // If the page currently open lived inside the deleted folder,
+              // bounce back to the project dashboard.
               if (pageId) {
-                api.getPage(pageId).catch(() => navigate(`/projects/${projectId}`));
+                api.getPage(pageId).catch(() => {
+                  navigate(`/projects/${projectId}`);
+                });
               }
             }}
           />
@@ -81,26 +134,65 @@ export default function ProjectLayout() {
 
       <div id="main">
         <div id="topbar">
-          <button id="hamburger" onClick={() => setSidebarOpen((o) => !o)} title="Toggle sidebar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          <button
+            id="hamburger"
+            onClick={() => setSidebarOpen((o) => !o)}
+            title="Toggle sidebar"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M3 6h18M3 12h18M3 18h18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
-          <div className="crumbs"><b>{project.name}</b></div>
-          <div className="user-chip"><b>{user?.name}</b>&nbsp;· {user?.role}</div>
-          <button className="btn btn-ghost btn-sm" onClick={logout}>Log out</button>
+
+          <div className="crumbs">
+            <b>{project.name}</b>
+          </div>
+
+          <div className="user-chip">
+            <b>{user?.name}</b>&nbsp;· {user?.role}
+          </div>
+
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={logout}
+          >
+            Log out
+          </button>
         </div>
+
         <div id="content">
-          <Outlet context={{ project, refreshTree } satisfies ProjectOutletCtx} />
+          <Outlet
+            context={{ project, refreshTree } satisfies ProjectOutletCtx}
+          />
         </div>
       </div>
 
-      {showFolderModal && (
-        <FolderModal projectId={projectId} onClose={() => setShowFolderModal(false)} onCreated={refreshTree} />
+      {showFolderModal && canManageContent && (
+        <FolderModal
+          projectId={projectId}
+          onClose={() => setShowFolderModal(false)}
+          onCreated={refreshTree}
+        />
       )}
-      {showPageModal && (
+
+      {showPageModal && canManageContent && (
         <PageFormModal
           projectId={projectId}
           onClose={() => setShowPageModal(false)}
-          onSaved={(newId) => { refreshTree(); navigate(`/projects/${projectId}/pages/${newId}`); }}
+          onSaved={(newId) => {
+            refreshTree();
+            navigate(`/projects/${projectId}/pages/${newId}`);
+          }}
         />
       )}
     </div>

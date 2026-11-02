@@ -1,5 +1,8 @@
-export type Role = 'admin' | 'user' | 'developer';
+// export type Role = 'admin' | 'user' | 'developer' | 'demo';
 
+export type Role = 'admin' | 'user' | 'developer' | 'demo';
+
+export type CreateUserRole = Exclude<Role, 'demo'>;
 export interface UserSummary {
   id: string;
   username: string;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -14,6 +16,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       await login(username, password);
       navigate('/');
@@ -34,24 +37,90 @@ export default function Login() {
             <span className="brand-title">Parity Ledger</span>
           </div>
         </div>
+
         <div className="login-title">Sign in</div>
-        <div className="login-sub">Track VB.NET → React/Django migration parity, page by page.</div>
+
+        <div className="login-sub">
+          Track VB.NET → React/Django migration parity, page by page.
+        </div>
 
         {error && <div className="form-error">{error}</div>}
 
         <div className="field">
           <label>Username</label>
-          <input type="text" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="jane.doe" />
+          <input
+            type="text"
+            autoFocus
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username"
+            autoComplete="username"
+          />
         </div>
+
         <div className="field" style={{ marginBottom: 20 }}>
           <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter password"
+            autoComplete="current-password"
+          />
         </div>
-        <button className="btn btn-accent" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
+
+        <button
+          className="btn btn-accent"
+          style={{ width: '100%', justifyContent: 'center' }}
+          disabled={loading}
+        >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-        <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 16, textAlign: 'center' }}>
-          Don't have an account? Ask an admin to create one for you.
+
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--text-faint)',
+            marginTop: 20,
+            textAlign: 'center',
+            lineHeight: 1.8,
+          }}
+        >
+          Want to explore Parity Ledger?
+
+          <div
+            style={{
+              marginTop: 10,
+              padding: 14,
+              background: 'var(--bg)',
+              borderRadius: 8,
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+              Demo account
+            </div>
+
+            <div>
+              Username: <b>admin</b>
+            </div>
+
+            <div>
+              Password: <b>admin123</b>
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 11.5,
+                lineHeight: 1.6,
+              }}
+            >
+              Explore projects, folders, pages, reviews and exports in your
+              own isolated demo workspace. Other visitors cannot access your
+              projects.
+            </div>
+          </div>
         </div>
       </form>
     </div>
